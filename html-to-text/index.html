@@ -1,1 +1,156 @@
-
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HTML → テキスト</title>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@400;700&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #0d0d0d;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: #2e2e2e;
+  --text: #f0ece4;
+  --text2: #888;
+  --green: #39ff7e;
+  --green-dim: #1a4a30;
+  --font-jp: 'BIZ UDGothic', sans-serif;
+  --font-mono: 'Syne Mono', monospace;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-jp); overflow: hidden; }
+.app { display: flex; flex-direction: column; height: 100dvh; }
+.header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 12px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.header-title { font-family: var(--font-mono); font-size: 17px; letter-spacing: 0.04em; }
+.header-title span { color: var(--green); }
+.char-badge { font-family: var(--font-mono); font-size: 11px; color: var(--text2); letter-spacing: 0.06em; min-width: 64px; text-align: right; transition: color 0.2s; }
+.char-badge.active { color: var(--green); }
+.tabs { flex-shrink: 0; display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+.tab { flex: 1; padding: 10px 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; text-align: center; color: var(--text2); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: color 0.15s, border-color 0.15s; -webkit-appearance: none; }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+.panels { flex: 1; overflow: hidden; position: relative; }
+.panel { position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.18s; }
+.panel.active { opacity: 1; pointer-events: auto; }
+.input-area { flex: 1; width: 100%; background: var(--surface); color: var(--text); font-family: var(--font-mono); font-size: 13px; line-height: 1.65; border: none; outline: none; padding: 16px; resize: none; -webkit-appearance: none; caret-color: var(--green); }
+.input-area::placeholder { color: #444; }
+.input-toolbar { flex-shrink: 0; display: flex; gap: 8px; padding: 10px 14px; background: var(--surface2); border-top: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.chip { flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 20px; font-family: var(--font-mono); font-size: 10px; color: var(--text2); background: var(--surface); cursor: pointer; transition: border-color 0.15s, color 0.15s; -webkit-appearance: none; white-space: nowrap; }
+.chip.on { border-color: var(--green); color: var(--green); }
+.chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background 0.15s; }
+.chip.on .chip-dot { background: var(--green); }
+.convert-btn { flex-shrink: 0; margin: 0 14px 14px; padding: 14px; background: var(--green); color: #000; font-family: var(--font-mono); font-size: 14px; font-weight: 700; letter-spacing: 0.1em; border: none; border-radius: 4px; cursor: pointer; -webkit-appearance: none; transition: opacity 0.15s, transform 0.1s; }
+.convert-btn:active { opacity: 0.8; transform: scale(0.98); }
+.output-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
+.output-text { font-family: var(--font-jp); font-size: 15px; line-height: 1.85; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.output-empty { font-family: var(--font-mono); font-size: 13px; color: #333; text-align: center; margin-top: 60px; letter-spacing: 0.06em; line-height: 2; }
+.output-toolbar { flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--border); }
+.out-btn { padding: 14px; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; color: var(--text2); background: var(--surface2); border: none; cursor: pointer; -webkit-appearance: none; transition: color 0.15s, background 0.15s; }
+.out-btn:first-child { border-right: 1px solid var(--border); }
+.out-btn:active { background: var(--surface); color: var(--text); }
+.out-btn.copy-active { color: var(--green); background: var(--green-dim); }
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 1px solid var(--green); color: var(--green); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em; padding: 9px 20px; border-radius: 4px; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; white-space: nowrap; z-index: 999; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .convert-btn { margin-bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-title">HTML<span> → </span>TEXT</div>
+    <div class="char-badge" id="charBadge">— 文字</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tabIn" onclick="switchTab('in')">INPUT</button>
+    <button class="tab" id="tabOut" onclick="switchTab('out')">OUTPUT</button>
+  </div>
+  <div class="panels">
+    <div class="panel active" id="panelIn">
+      <textarea class="input-area" id="htmlInput" placeholder="HTMLをここに貼り付け…" autocorrect="off" autocapitalize="none" spellcheck="false"></textarea>
+      <div class="input-toolbar">
+        <button class="chip on" id="chipScript" onclick="toggleChip('chipScript')"><span class="chip-dot"></span>script除去</button>
+        <button class="chip on" id="chipDecode" onclick="toggleChip('chipDecode')"><span class="chip-dot"></span>エンティティ</button>
+        <button class="chip on" id="chipBlank" onclick="toggleChip('chipBlank')"><span class="chip-dot"></span>空白圧縮</button>
+        <button class="chip on" id="chipTrim" onclick="toggleChip('chipTrim')"><span class="chip-dot"></span>トリム</button>
+      </div>
+      <button class="convert-btn" onclick="convert()">▶ 変換</button>
+    </div>
+    <div class="panel" id="panelOut">
+      <div class="output-scroll" id="outputScroll">
+        <div class="output-empty" id="outputEmpty">まだ変換されていません。<br>INPUT タブで変換してください。</div>
+        <div class="output-text" id="outputText" style="display:none;"></div>
+      </div>
+      <div class="output-toolbar">
+        <button class="out-btn" id="copyBtn" onclick="copyText()">コピー</button>
+        <button class="out-btn" onclick="clearAll()">クリア</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast">✓ コピーしました</div>
+<script>
+let outputContent = '';
+function switchTab(t) {
+  ['In','Out'].forEach(x => {
+    document.getElementById('tab'+x).classList.toggle('active', t === x.toLowerCase());
+    document.getElementById('panel'+x).classList.toggle('active', t === x.toLowerCase());
+  });
+}
+function toggleChip(id) { document.getElementById(id).classList.toggle('on'); }
+function chipOn(id) { return document.getElementById(id).classList.contains('on'); }
+function decodeEntities(str) { const d = document.createElement('div'); d.innerHTML = str; return d.textContent || d.innerText || ''; }
+function convert() {
+  let html = document.getElementById('htmlInput').value;
+  if (!html.trim()) { switchTab('out'); return; }
+  if (chipOn('chipScript')) {
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    html = html.replace(/<style[\s\S]*?<\/style>/gi, '');
+  }
+  html = html.replace(/<\/(p|div|h[1-6]|li|tr|blockquote|article|section|header|footer|nav|aside|main)[^>]*>/gi, '\n');
+  html = html.replace(/<br\s*\/?>/gi, '\n');
+  let text = html.replace(/<[^>]+>/g, '');
+  if (chipOn('chipDecode')) text = decodeEntities(text);
+  if (chipOn('chipBlank'))  text = text.replace(/\n{3,}/g, '\n\n');
+  if (chipOn('chipTrim'))   text = text.split('\n').map(l => l.trim()).join('\n').trim();
+  outputContent = text;
+  const badge = document.getElementById('charBadge');
+  badge.textContent = text.length.toLocaleString('ja-JP') + ' 文字';
+  badge.classList.toggle('active', text.length > 0);
+  const empty = document.getElementById('outputEmpty');
+  const out = document.getElementById('outputText');
+  if (text) { empty.style.display = 'none'; out.style.display = 'block'; out.textContent = text; }
+  else       { empty.style.display = 'block'; out.style.display = 'none'; }
+  document.getElementById('outputScroll').scrollTop = 0;
+  switchTab('out');
+}
+async function copyText() {
+  if (!outputContent) return;
+  try { await navigator.clipboard.writeText(outputContent); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = outputContent; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  const btn = document.getElementById('copyBtn');
+  btn.classList.add('copy-active'); btn.textContent = '✓ コピー済み';
+  setTimeout(() => { btn.classList.remove('copy-active'); btn.textContent = 'コピー'; }, 2000);
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1800);
+}
+function clearAll() {
+  document.getElementById('htmlInput').value = '';
+  document.getElementById('outputText').textContent = '';
+  document.getElementById('outputText').style.display = 'none';
+  document.getElementById('outputEmpty').style.display = 'block';
+  const badge = document.getElementById('charBadge');
+  badge.textContent = '— 文字'; badge.classList.remove('active');
+  outputContent = '';
+  switchTab('in');
+}
+</script>
+</body>
+</html>
